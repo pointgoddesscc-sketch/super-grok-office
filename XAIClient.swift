@@ -1,14 +1,14 @@
 import Foundation
 
-// MARK: - Models matching current xAI API (Responses + Imagine)
-
 struct XAIResponse: Decodable {
     let id: String?
     let output: [XAIOutput]?
+    let output_text: String?
     let model: String?
     let choices: [XAIChoice]?
     
     var text: String {
+        if let output_text, !output_text.isEmpty { return output_text }
         if let output, let first = output.first {
             return first.content?.first?.text ?? first.text ?? ""
         }
@@ -47,79 +47,75 @@ struct ImageGenerationResponse: Decodable {
 
 struct VideoStartResponse: Decodable {
     let request_id: String?
+    let id: String?
 }
 
 struct VideoStatusResponse: Decodable {
     let status: String?
+    let state: String?
     let video: VideoInfo?
+    let video_url: String?
+    let url: String?
     struct VideoInfo: Decodable {
         let url: String?
     }
+    
+    var resolvedStatus: String { status ?? state ?? "" }
+    var resolvedURL: String? { video?.url ?? video_url ?? url }
 }
-
-// MARK: - Production XAI Client (master key from Keychain only)
 
 @MainActor
 final class XAIClient {
     static let shared = XAIClient()
-    
     private let base = "https://api.x.ai/v1"
     private let session = URLSession.shared
     
+    /// Master key from Keychain only (matches office-api-kit.sh)
     private var apiKey: String {
         KeychainManager.shared.getMasterKey() ?? ""
     }
     
-    // MARK: - Responses API (grok-4.5)
-    
-    func respond(input: String, model: String = "grok-4.5") async throws -> String {
-        let body: [String: Any] = ["model": model, "input": input]
-        let data = try await post(path: "/responses", body: body)
+    // Defaults aligned with scripts/office-api-kit.sh
+    func respond(input: String, model: String = "grok-4") async throws -> String {
+        let data = try await post(path: "/responses", body: ["model": model, "input": input])
         return try JSONDecoder().decode(XAIResponse.self, from: data).text
     }
     
-    func respond(messages: [[String: String]], model: String = "grok-4.5") async throws -> String {
-        let body: [String: Any] = ["model": model, "input": messages]
-        let data = try await post(path: "/responses", body: body)
+    func respond(messages: [[String: String]], model: String = "grok-4") async throws -> String {
+        let data = try await post(path: "/responses", body: ["model": model, "input": messages])
         return try JSONDecoder().decode(XAIResponse.self, from: data).text
     }
     
-    func chat(system: String, user: String, model: String = "grok-4.5") async throws -> String {
+    func chat(system: String, user: String, model: String = "grok-4") async throws -> String {
         try await respond(messages: [
             ["role": "system", "content": system],
             ["role": "user", "content": user]
         ], model: model)
     }
     
-    // MARK: - Image (grok-imagine-image-quality)
-    
-    func generateImage(prompt: String, model: String = "grok-imagine-image-quality") async throws -> URL? {
-        let body: [String: Any] = ["model": model, "prompt": prompt]
-        let data = try await post(path: "/images/generations", body: body)
+    func generateImage(prompt: String, model: String = "grok-imagine-image") async throws -> URL? {
+        let data = try await post(path: "/images/generations", body: ["model": model, "prompt": prompt])
         let decoded = try JSONDecoder().decode(ImageGenerationResponse.self, from: data)
         if let urlStr = decoded.data?.first?.url { return URL(string: urlStr) }
         return nil
     }
     
-    // MARK: - Video (grok-imagine-video) + poll
-    
     func generateVideo(prompt: String, model: String = "grok-imagine-video", pollInterval: TimeInterval = 5) async throws -> URL {
         let startData = try await post(path: "/videos/generations", body: ["model": model, "prompt": prompt])
         let start = try JSONDecoder().decode(VideoStartResponse.self, from: startData)
-        guard let requestId = start.request_id else { throw XAIError.missingRequestId }
+        guard let requestId = start.request_id ?? start.id else { throw XAIError.missingRequestId }
         
         while true {
             try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
             let statusData = try await get(path: "/videos/\(requestId)")
             let status = try JSONDecoder().decode(VideoStatusResponse.self, from: statusData)
-            switch status.status {
-            case "done":
-                if let urlStr = status.video?.url, let url = URL(string: urlStr) { return url }
+            let s = status.resolvedStatus
+            if ["done", "completed", "succeeded"].contains(s) {
+                if let urlStr = status.resolvedURL, let url = URL(string: urlStr) { return url }
                 throw XAIError.missingVideoURL
-            case "failed", "expired":
-                throw XAIError.videoFailed(status.status ?? "unknown")
-            default:
-                continue
+            }
+            if ["failed", "expired", "error"].contains(s) {
+                throw XAIError.videoFailed(s)
             }
         }
     }
