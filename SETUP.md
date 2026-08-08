@@ -5,97 +5,64 @@
 git clone https://github.com/pointgoddesscc-sketch/super-grok-office.git
 cd super-grok-office
 ```
-- Xcode → File → New → Project → macOS → App
-- Product Name: `SuperGrokOffice`
-- Bundle Identifier: **`services.psemanagement.supergrok`**
-- Interface: SwiftUI, Language: Swift, Storage: none
-- Replace generated files with the 6 Swift files from this repo
-- Signing & Capabilities → enable Keychain Sharing (optional access group) and App Sandbox as needed
+- Xcode → New → macOS App → Bundle ID **`services.psemanagement.supergrok`**
+- Drop in all Swift files from this repo (including `XAIClient.swift`)
+- Signing: enable Keychain access as needed
 
 ## 2. Master Key → Keychain
-1. Run the app (⌘R)
-2. Onboarding appears → paste your xAI key from https://console.x.ai (starts with `xai-`)
-3. Tap **Save to Keychain & Start Office**
-4. Key is stored with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` under service `services.psemanagement.supergrok.master`
+1. Run (⌘R)
+2. Paste xAI key from https://console.x.ai (`xai-…`)
+3. Saved with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
 
 ## 3. Factory Auto-Provisions
-- `provisionAllModules()` creates 8 scoped keys:
-  - `sk-pse-office-chat-*`
-  - `sk-pse-office-docs-*`
-  - `sk-pse-office-projects-*`
-  - `sk-pse-office-inbox-*`
-  - `sk-pse-office-calendar-*`
-  - `sk-pse-office-imagine-*`
-  - `sk-pse-office-team-*`
-  - `sk-pse-office-drive-*`
-- Keys appear in the **Keys** module (API Key Factory)
+Creates internal identifiers `sk-pse-office-{module}-*` for UI/tracking.  
+**Real API calls always use the master Keychain key** (see XAIClient).
 
 ## 4. Start Office
-- Click **Start Office** in the toolbar or MenuBarExtra
-- Sidebar modules become active
-- Status badge shows **Office Online**
-- Central Brain (Chat) uses the chat-scoped sub-key only
+Toolbar / MenuBarExtra → **Office Online**. Chat uses `/v1/responses` with `grok-4.5`.
 
-## 5. Archive & Distribute
+## 5. Archive
+Product → Archive → TestFlight or signed DMG.
+
+---
+
+## Real xAI API (wired in XAIClient.swift)
+
+Matches the official curl examples:
+
+| Capability | Model | Endpoint |
+|------------|-------|----------|
+| Chat / fix code | `grok-4.5` | `POST /v1/responses` |
+| Multi-turn | `grok-4.5` | `POST /v1/responses` with `input: [{role, content}]` |
+| Image | `grok-imagine-image-quality` | `POST /v1/images/generations` |
+| Video | `grok-imagine-video` | `POST /v1/videos/generations` then poll `GET /v1/videos/{request_id}` |
+
+Authorization: `Bearer <master key from Keychain>` only.  
+Office sub-keys (`sk-pse-office-*`) are **not** sent to api.x.ai.
+
+Example equivalence:
 ```bash
-# Or in Xcode: Product → Archive → Distribute App
-xcodebuild -scheme SuperGrokOffice -configuration Release archive
+# Same as XAIClient.respond(input:)
+curl https://api.x.ai/v1/responses \
+  -H "Authorization: Bearer $XAI_API_KEY" \
+  -d '{"model":"grok-4.5","input":"Fix this function..."}'
 ```
-- Upload to TestFlight (Mac) or export signed DMG
-- Team members install the .app → “Join Office” flow (admin approves) → they receive only sub-keys
 
 ---
 
-## Stripe Product + Payment Link (Create in Dashboard)
+## Stripe Product + Payment Link
 
-API write for Products is restricted on the connected key. Create in 60 seconds:
-
-1. Open https://dashboard.stripe.com/products (account **Krmanagement**)
-2. **+ Add product**
-   - Name: `Super Grok Office`
-   - Description: `Keychain-first macOS Office Hub seats. Bundle services.psemanagement.supergrok`
-3. Add price:
-   - Recurring → Monthly → **$29.00 USD** → Save
-4. Add second price (optional):
-   - Recurring → Yearly → **$290.00 USD**
-5. On the product page → **Create payment link**
-   - Select the monthly (or yearly) price
-   - After payment: redirect to https://super-grok-office-pse-sent.vercel.app
-   - Collect customer email
-6. Copy the Payment Link URL (looks like `https://buy.stripe.com/...`)
-7. Paste it into the Vercel landing or share directly with team
-
-Recommended metadata on the product:
-```
-bundle_id = services.psemanagement.supergrok
-product_type = saas_seat
-```
-
-Customer Portal (for upgrades/cancel):
-Dashboard → Settings → Billing → Customer portal → Activate
+Create in Dashboard (API product write restricted):
+1. https://dashboard.stripe.com/products → **+ Add product** → **Super Grok Office**
+2. Recurring **$29/month** (optional $290/year)
+3. **Create payment link** → redirect to https://super-grok-office-pse-sent.vercel.app
+4. Share `buy.stripe.com/…`
 
 ---
 
-## Real Connector Wiring Map
+## Connector map
+Inbox → Gmail/Outlook · Projects → Linear · Docs → Notion · Calendar → Google + Calendly · Team → Microsoft Teams · Payments → Stripe · Chat/Imagine → xAI via master key
 
-| Office Module | Real Connector(s) | How it wires |
-|---------------|-------------------|--------------|
-| Inbox | Gmail + Outlook | Triage + draft via Graph / Gmail API; use scoped `inbox` key for Grok summarization |
-| Projects | Linear | List/create issues via Linear MCP; Grok acts as PM using `projects` key |
-| Docs | Notion | Create/update pages; Grok rewrite/summarize with `docs` key |
-| Chat | xAI (Grok-4) | All traffic uses `sk-pse-office-chat-*` only |
-| Imagine | xAI grok-imagine | Scoped `imagine` key |
-| Calendar | Google Calendar + Calendly | Find slots, buffer, reschedule |
-| Team | Microsoft Teams | Meeting notes / channel summaries |
-| Drive | (Notion / GitHub) | Semantic search over docs/code |
-| Keys | Keychain | Factory UI |
-| Payments | Stripe | Seats via Payment Link above |
-
-All connectors are already connected in your OrgSuite session. The Swift modules call the corresponding APIs using the scoped office key for any Grok reasoning; the actual connector calls (Linear, Notion, Calendar, etc.) use the user’s authenticated sessions.
-
----
-
-## Live Links
+## Live
 - Landing: https://super-grok-office-pse-sent.vercel.app
 - Source: https://github.com/pointgoddesscc-sketch/super-grok-office
-- Linear: https://linear.app/pse-management/project/super-grok-macos-office-d4bf4b9a8744
