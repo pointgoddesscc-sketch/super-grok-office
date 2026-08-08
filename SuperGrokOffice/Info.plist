@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>PSE Office OS</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>services.psemanagement.supergrok</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PSE Office OS</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>100</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 psemanagement.services. All rights reserved.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>PSE Office OS uses Face ID to unlock the master Key Forge key stored in the Secure Enclave. Biometrics never leave this device.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Office OS reads your calendar to auto-block deep-work time and schedule follow-ups from Chat Brain and Inbox Zero.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Full calendar access lets Calendar Flow optimize time blocks and defend focus sessions.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Contacts are used only to resolve names in Inbox Zero drafts and Team Sync meeting notes. Never uploaded for advertising.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Optional voice input for Chat Brain dictation. Audio is processed for transcription only and is not stored permanently.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Imagine Studio can save generated office assets (decks, diagrams) to your photo library when you choose Export.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Optional camera for document capture into Docs Forge. Images stay on device unless you explicitly send them to Grok vision.</string>
+</dict>
+</plist>
